@@ -29,22 +29,51 @@ __version__ = "0.1.0"
 
 import click
 import json
+import os
 import requests
 import sys
 
 
+API_ENDPOINT = "https://porkbun.com/api/json/v3/"
+
+
+# With our auth we want to go in order of importance:
+# - command line
+# - json file (can be set by flag)
+# - env variables
 class PorkAuth:
     """Call for authorizing access to Porkbun API"""
 
-    API_KEY = None
-    API_SECRET = None
+    AUTH_PAYLOAD = {"secretapikey": None, "apikey": None}
 
-    def __init__(self, key=None, secret=None):
-        # what I need to do here is determine if key, and secret are both passed in
-        # then check to see if they actually work by pining the api, and if so then
-        # we've got a valid auth and can proceed with whatever dumb shit we want to
-        # do.
-        print("stub")
+    # what I need to do here is determine if key, and secret are both passed in
+    # then check to see if they actually work by pining the api, and if so then
+    # we've got a valid auth and can proceed with whatever dumb shit we want to
+    # do.
+    def __init__(self, key=None, secret=None, path="porkpy.json"):
+        print(key, secret, path)
+        if key and secret:
+            self.AUTH_PAYLOAD["apikey"] = key
+            self.AUTH_PAYLOAD["secretapikey"] = secret
+        elif path:
+            temp = {}
+
+            with open(path, "r") as auth_file:
+                temp = json.load(auth_file)
+
+            self.AUTH_PAYLOAD = {**temp}
+        else:
+            self.AUTH_PAYLOAD = {
+                "secretapikey": os.getenv("PORKPY_SECRET"),
+                "apikey": os.getenv("PORKPY_API"),
+            }
+
+    def test_auth(self):
+        response = requests.post(
+            API_ENDPOINT + "ping", data=json.dumps(self.AUTH_PAYLOAD)
+        )
+        json_resp = response.json()
+        return json.dumps(json_resp)
 
 
 @click.group()
@@ -53,7 +82,7 @@ def cli():
     pass
 
 
-@cli.command(help="Check pricing of TLDs")
+@cli.command(name="pricing", help="Check pricing of TLDs")
 @click.option(
     "-d",
     "--domain",
@@ -65,7 +94,7 @@ def cli():
 def pricing(domain):
     # FIXME: check for status code response from our post request and display
     # info to the user about why it might have failed.
-    response = requests.post("https://porkbun.com/api/json/v3/pricing/get")
+    response = requests.post(API_ENDPOINT + "pricing/get")
     json_resp = response.json()
     output = {}
 
@@ -85,6 +114,14 @@ def pricing(domain):
         print("FIXME: API call was unsuccessful.")
 
     print(json.dumps(output))
+
+
+@cli.command(name="auth", help="Check if you are authorized to access the Porkbun API")
+@click.option("-f", "--file", type=click.Path(exists=True))
+def authorized(file):
+    kwargs = {"path": file} if file else {}
+    auth = PorkAuth(**kwargs)
+    print(auth.test_auth())
 
 
 def main():
