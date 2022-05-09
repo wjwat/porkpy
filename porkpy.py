@@ -51,7 +51,6 @@ class PorkAuth:
     # we've got a valid auth and can proceed with whatever dumb shit we want to
     # do.
     def __init__(self, key=None, secret=None, path="porkpy.json"):
-        print(key, secret, path)
         if key and secret:
             self.AUTH_PAYLOAD["apikey"] = key
             self.AUTH_PAYLOAD["secretapikey"] = secret
