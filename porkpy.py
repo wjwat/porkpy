@@ -39,6 +39,18 @@ AUTH_OPTIONS = [
     click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
     click.option("-s", "--secrets", type=str),
 ]
+VALID_DOMAIN_TYPES = [
+    "A",
+    "MX",
+    "CNAME",
+    "ALIAS",
+    "TXT",
+    "NS",
+    "AAAA",
+    "SRV",
+    "TLSA",
+    "CAA",
+]
 
 
 def add_options(options):
@@ -48,6 +60,23 @@ def add_options(options):
         return f
 
     return _add_options
+
+
+class PorkRecord:
+    domain = None
+    auth = None
+
+    def __init__(self, domain, auth):
+        self.domain = domain
+        self.auth = auth
+        return
+
+    def retrieve(self):
+        response = requests.post(
+            API_ENDPOINT + f"dns/retrieve/{self.domain}", data=self.auth.auth_str()
+        )
+        json_resp = response.json()
+        return json.dumps(json_resp)
 
 
 # With our auth we want to go in order of importance:
@@ -66,15 +95,10 @@ class PorkAuth:
     def __init__(self, file, secrets=None):
         if secrets:
             key, secret = secrets.split(":")
-            self.AUTH_PAYLOAD["apikey"] = key
-            self.AUTH_PAYLOAD["secretapikey"] = secret
+            self.AUTH_PAYLOAD = {"apikey": key, "secretapikey": secret}
         elif file:
-            temp = {}
-
             with open(file, "r") as auth_file:
-                temp = json.load(auth_file)
-
-            self.AUTH_PAYLOAD = {**temp}
+                self.AUTH_PAYLOAD = {**json.load(auth_file)}
         else:
             self.AUTH_PAYLOAD = {
                 "secretapikey": os.getenv("PORKPY_SECRET"),
@@ -87,6 +111,9 @@ class PorkAuth:
         )
         json_resp = response.json()
         return json.dumps(json_resp)
+
+    def auth_str(self):
+        return json.dumps(self.AUTH_PAYLOAD)
 
 
 @click.group()
@@ -142,7 +169,15 @@ def pricing(tld):
 @add_options(AUTH_OPTIONS)
 def authorized(**kwargs):
     auth = PorkAuth(**kwargs)
-    click.echo(auth.test_auth())
+    print(auth.test_auth())
+
+
+@cli.command(name="domain", help="Do stuff with your domain")
+@add_options(AUTH_OPTIONS)
+def domain(**kwargs):
+    auth = PorkAuth(**kwargs)
+    domain = PorkRecord("porkpy.org", auth)
+    print(domain.retrieve())
 
 
 def main():
