@@ -24,7 +24,7 @@
 __author__ = "Will Watkins"
 __copyright__ = "Copyright 2022 Will Watkins"
 __license__ = "MIT"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 import click
@@ -35,29 +35,43 @@ import sys
 
 
 API_ENDPOINT = "https://porkbun.com/api/json/v3/"
+AUTH_OPTIONS = [
+    click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
+    click.option("-s", "--secrets", type=str),
+]
+
+
+def add_options(options):
+    def _add_options(f):
+        for option in reversed(options):
+            f = option(f)
+        return f
+
+    return _add_options
 
 
 # With our auth we want to go in order of importance:
-# - command line
-# - json file (can be set by flag)
-# - env variables
+# - command line args
+# - json file (can be set by flag, but defaults to "porkpy.json" in cwd)
+# - env variables ("PORKPY_SECRET" & "PORKPY_API")
 class PorkAuth:
     """Call for authorizing access to Porkbun API"""
 
     AUTH_PAYLOAD = {"secretapikey": None, "apikey": None}
 
     # what I need to do here is determine if key, and secret are both passed in
-    # then check to see if they actually work by pining the api, and if so then
+    # then check to see if they actually work by pinging the api, and if so then
     # we've got a valid auth and can proceed with whatever dumb shit we want to
     # do.
-    def __init__(self, key=None, secret=None, path="porkpy.json"):
-        if key and secret:
+    def __init__(self, file, secrets=None):
+        if secrets:
+            key, secret = secrets.split(":")
             self.AUTH_PAYLOAD["apikey"] = key
             self.AUTH_PAYLOAD["secretapikey"] = secret
-        elif path:
+        elif file:
             temp = {}
 
-            with open(path, "r") as auth_file:
+            with open(file, "r") as auth_file:
                 temp = json.load(auth_file)
 
             self.AUTH_PAYLOAD = {**temp}
@@ -81,16 +95,25 @@ def cli():
     pass
 
 
-@cli.command(name="pricing", help="Check pricing of TLDs")
+@cli.command(name="pricing", short_help="Check pricing of TLDs")
 @click.option(
-    "-d",
-    "--domain",
+    "-t",
+    "--tld",
     default=None,
     help="Specific TLDs you'd like info for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
     multiple=True,
     type=str,
 )
-def pricing(domain):
+def pricing(tld):
+    """Check pricing of TLDs. Omit a specific TLD to view the price for all TLDs.
+
+    \b
+    $ porkpy pricing
+    <JSON response including all available TLDs>
+    \b
+    $ porkpy pricing -t com -t net
+    <JSON response including .com and .net TLDs>
+    """
     # FIXME: check for status code response from our post request and display
     # info to the user about why it might have failed.
     response = requests.post(API_ENDPOINT + "pricing/get")
@@ -98,11 +121,11 @@ def pricing(domain):
     output = {}
 
     if json_resp["status"] == "SUCCESS":
-        if len(domain) == 0:
+        if len(tld) == 0:
             output = json_resp
         else:
             output["status"] = json_resp["status"]
-            for d in domain:
+            for d in tld:
                 try:
                     output["pricing"] = {d: json_resp["pricing"][d]}
                 except KeyError:
@@ -116,11 +139,10 @@ def pricing(domain):
 
 
 @cli.command(name="auth", help="Check if you are authorized to access the Porkbun API")
-@click.option("-f", "--file", type=click.Path(exists=True))
-def authorized(file):
-    kwargs = {"path": file} if file else {}
+@add_options(AUTH_OPTIONS)
+def authorized(**kwargs):
     auth = PorkAuth(**kwargs)
-    print(auth.test_auth())
+    click.echo(auth.test_auth())
 
 
 def main():
