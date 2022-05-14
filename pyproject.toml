@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "porkpy"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Will W. <wjwat@onionslice.org>"]
 

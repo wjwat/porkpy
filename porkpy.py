@@ -35,11 +35,11 @@ import sys
 
 
 API_ENDPOINT = "https://porkbun.com/api/json/v3/"
-AUTH_OPTIONS = [
+AUTH_OPTIONS = (
     click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
     click.option("-s", "--secrets", type=str),
-]
-VALID_DOMAIN_TYPES = [
+)
+VALID_DOMAIN_TYPES = (
     "A",
     "MX",
     "CNAME",
@@ -50,7 +50,7 @@ VALID_DOMAIN_TYPES = [
     "SRV",
     "TLSA",
     "CAA",
-]
+)
 
 
 def add_options(options):
@@ -63,9 +63,6 @@ def add_options(options):
 
 
 class PorkRecord:
-    domain = None
-    auth = None
-
     def __init__(self, domain, auth):
         self.domain = domain
         self.auth = auth
@@ -105,12 +102,17 @@ class PorkAuth:
                 "apikey": os.getenv("PORKPY_API"),
             }
 
-    def test_auth(self):
+    def test_auth(self, ipv4=False):
+        endpoint = API_ENDPOINT
+
+        if ipv4:
+            endpoint = endpoint.replace("porkbun.com", "api-ipv4.porkbun.com")
+
         response = requests.post(
             API_ENDPOINT + "ping", data=json.dumps(self.AUTH_PAYLOAD)
         )
         json_resp = response.json()
-        return json.dumps(json_resp)
+        return (json_resp["status"] == "SUCCESS", json_resp)
 
     def auth_str(self):
         return json.dumps(self.AUTH_PAYLOAD)
@@ -169,14 +171,22 @@ def pricing(tld):
 @add_options(AUTH_OPTIONS)
 def authorized(**kwargs):
     auth = PorkAuth(**kwargs)
-    print(auth.test_auth())
+    success, response = auth.test_auth()
+    print(json.dumps(response))
 
 
 @cli.command(name="domain", help="Do stuff with your domain")
+@click.option(
+    "-d",
+    "--domain",
+    required=True,
+    type=str,
+)
 @add_options(AUTH_OPTIONS)
 def domain(**kwargs):
-    auth = PorkAuth(**kwargs)
-    domain = PorkRecord("porkpy.org", auth)
+    auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
+    auth = PorkAuth(**auth_args)
+    domain = PorkRecord(kwargs["domain"], auth)
     print(domain.retrieve())
 
 
