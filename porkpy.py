@@ -35,19 +35,28 @@ import sys
 
 
 API_ENDPOINT = "https://porkbun.com/api/json/v3/"
-AUTH_OPTIONS = (
-    click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
-    click.option("-s", "--secrets", type=str),
-)
-DOMAIN_BASE = (click.option("-d", "--domain", required=True, type=str),)
-DOMAIN_OPTIONS = (
-    click.option("-n", "--name", type=str),
-    click.option("-t", "--type", type=str),
-    click.option("-c", "--content", type=str),
-    click.option("-l", "--ttl", type=str),
-    click.option("-p", "--priority", type=str),
-)
-DOMAIN_SSL = (click.option("--ssl", type=bool, default=False, is_flag=True),)
+PORKPY_OPTIONS = {
+    "file": click.option(
+        "-f", "--file", type=click.Path(exists=True), default="porkpy.json"
+    ),
+    "secrets": click.option("-s", "--secrets", type=str),
+    "id": click.option("-i", "--id", type=str, default=None),
+    "domain": click.option("-d", "--domain", required=True, type=str),
+    "name": click.option("-n", "--name", type=str),
+    "type": click.option("-t", "--type", type=str),
+    "content": click.option("-c", "--content", type=str),
+    "ttl": click.option("-l", "--ttl", type=str),
+    "priority": click.option("-p", "--priority", type=str),
+    "tld": click.option(
+        "-t",
+        "--tld",
+        default=None,
+        help="Specific TLDs you'd like pricing for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
+        multiple=True,
+        type=str,
+    ),
+    "ssl": click.option("--ssl", type=bool, default=False, is_flag=True),
+}
 VALID_DOMAIN_TYPES = (
     "A",
     "MX",
@@ -62,13 +71,27 @@ VALID_DOMAIN_TYPES = (
 )
 
 
-def add_options(options):
+def add_options(*options):
+    opts = []
+    for o in options:
+        # TODO: Add error when option not in PORKPY_OPTIONS
+        if o in PORKPY_OPTIONS:
+            opts.append(PORKPY_OPTIONS[o])
+
     def _add_options(f):
-        for option in reversed(options):
+        for option in reversed(opts):
             f = option(f)
         return f
 
     return _add_options
+
+
+def opts(*args):
+    result = []
+    for a in args:
+        if a in PORKPY_OPTIONS:
+            result.append(PORKPY_OPTIONS[a])
+    return result
 
 
 class PorkRecord:
@@ -141,14 +164,7 @@ def cli():
 
 
 @cli.command(name="pricing", short_help="Check pricing of TLDs")
-@click.option(
-    "-t",
-    "--tld",
-    default=None,
-    help="Specific TLDs you'd like pricing for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
-    multiple=True,
-    type=str,
-)
+@add_options("tld")
 def pricing(tld):
     # FIXME: check for status code response from our post request and display
     # info to the user about why it might have failed.
@@ -175,7 +191,7 @@ def pricing(tld):
 
 
 @cli.command(name="auth", help="Check if you are authorized to access the Porkbun API")
-@add_options(AUTH_OPTIONS)
+@add_options("file", "secrets")
 def authorized(**kwargs):
     auth = PorkAuth(**kwargs)
     success, response = auth.test_auth()
@@ -188,7 +204,7 @@ def domain(**kwargs):
 
 
 @domain.command("info")
-@add_options(DOMAIN_BASE + DOMAIN_SSL + AUTH_OPTIONS)
+@add_options("domain", "id", "ssl", "file", "secrets")
 def domain_retrieve_records(**kwargs):
     auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
     auth = PorkAuth(**auth_args)
