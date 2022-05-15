@@ -35,15 +35,33 @@ import sys
 
 
 API_ENDPOINT = "https://porkbun.com/api/json/v3/"
+VALID_DOMAIN_TYPES = (
+    "A",
+    "MX",
+    "CNAME",
+    "ALIAS",
+    "TXT",
+    "NS",
+    "AAAA",
+    "SRV",
+    "TLSA",
+    "CAA",
+)
 PORKPY_OPTIONS = {
     "file": click.option(
         "-f", "--file", type=click.Path(exists=True), default="porkpy.json"
     ),
     "secrets": click.option("-s", "--secrets", type=str),
+    "auth_string": click.option(
+        "-a", "--auth-string", type=bool, default=False, is_flag=True
+    ),
     "id": click.option("-i", "--id", type=str, default=None),
     "domain": click.option("-d", "--domain", required=True, type=str),
     "name": click.option("-n", "--name", type=str),
-    "type": click.option("-t", "--type", type=str),
+    "type": click.option(
+        "-t", "--type", type=click.Choice(VALID_DOMAIN_TYPES, case_sensitive=False)
+    ),
+    "subdomain": click.option("-u", "--subdomain", type=str),
     "content": click.option("-c", "--content", type=str),
     "ttl": click.option("-l", "--ttl", type=str),
     "priority": click.option("-p", "--priority", type=str),
@@ -57,18 +75,6 @@ PORKPY_OPTIONS = {
     ),
     "ssl": click.option("--ssl", type=bool, default=False, is_flag=True),
 }
-VALID_DOMAIN_TYPES = (
-    "A",
-    "MX",
-    "CNAME",
-    "ALIAS",
-    "TXT",
-    "NS",
-    "AAAA",
-    "SRV",
-    "TLSA",
-    "CAA",
-)
 
 
 def add_options(*options):
@@ -94,6 +100,12 @@ def opts(*args):
     return result
 
 
+def get_json_response(url, **kwargs):
+    response = requests.post(url, **kwargs)
+    json_response = response.json()
+    return json_response
+
+
 class PorkRecord:
     def __init__(self, domain, auth):
         self.domain = domain
@@ -101,18 +113,18 @@ class PorkRecord:
         return
 
     def retrieve(self):
-        response = requests.post(
+        response = get_json_response(
             API_ENDPOINT + f"dns/retrieve/{self.domain}", data=self.auth.auth_str()
         )
-        json_resp = response.json()
-        return json.dumps(json_resp)
+
+        return json.dumps(response)
 
     def retrieve_ssl(self):
-        response = requests.post(
+        response = get_json_response(
             API_ENDPOINT + f"ssl/retrieve/{self.domain}", data=self.auth.auth_str()
         )
-        json_resp = response.json()
-        return json.dumps(json_resp)
+
+        return json.dumps(response)
 
 
 # With our auth we want to go in order of importance:
@@ -128,7 +140,7 @@ class PorkAuth:
     # then check to see if they actually work by pinging the api, and if so then
     # we've got a valid auth and can proceed with whatever dumb shit we want to
     # do.
-    def __init__(self, file, secrets=None):
+    def __init__(self, file, secrets=None, **kwargs):
         if secrets:
             key, secret = secrets.split(":")
             self.AUTH_PAYLOAD = {"apikey": key, "secretapikey": secret}
@@ -147,11 +159,11 @@ class PorkAuth:
         if ipv4:
             endpoint = endpoint.replace("porkbun.com", "api-ipv4.porkbun.com")
 
-        response = requests.post(
+        response = get_json_response(
             API_ENDPOINT + "ping", data=json.dumps(self.AUTH_PAYLOAD)
         )
-        json_resp = response.json()
-        return (json_resp["status"] == "SUCCESS", json_resp)
+
+        return (response["status"] == "SUCCESS", response)
 
     def auth_str(self):
         return json.dumps(self.AUTH_PAYLOAD)
@@ -191,11 +203,15 @@ def pricing(tld):
 
 
 @cli.command(name="auth", help="Check if you are authorized to access the Porkbun API")
-@add_options("file", "secrets")
+@add_options("file", "secrets", "auth_string")
 def authorized(**kwargs):
     auth = PorkAuth(**kwargs)
-    success, response = auth.test_auth()
-    print(json.dumps(response))
+
+    if kwargs["auth_string"]:
+        print(auth.auth_str())
+    else:
+        success, response = auth.test_auth()
+        print(json.dumps(response))
 
 
 @cli.group(help="Do stuff with your domain")
@@ -204,8 +220,22 @@ def domain(**kwargs):
 
 
 @domain.command("info")
-@add_options("domain", "id", "ssl", "file", "secrets")
+@add_options("domain", "id", "ssl", "file", "secrets", "type", "subdomain")
 def domain_retrieve_records(**kwargs):
+    if (kwargs["type"] is None or kwargs["subdomain"] is None) and (
+        kwargs["type"] != kwargs["subdomain"]
+    ):
+        option = "type" if (kwargs["type"] is None) else "subdomain"
+        raise click.BadOptionUsage(
+            option_name=option,
+            message=f"Missing option: --{option}, both type and subdomain options must be provided",
+        )
+    if kwargs["ssl"]:
+        raise click.BadOptionUsage(
+            option_name="ssl",
+            message="--ssl may not be used in conjunction with --type and --subdomain",
+        )
+
     auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
     auth = PorkAuth(**auth_args)
     domain = PorkRecord(kwargs["domain"], auth)
@@ -213,6 +243,8 @@ def domain_retrieve_records(**kwargs):
     if kwargs["ssl"]:
         ssl = domain.retrieve_ssl()
         print(ssl)
+    elif kwargs["type"] and kwargs["subdomain"]:
+        print("shit")
     else:
         records = domain.retrieve()
         print(records)
