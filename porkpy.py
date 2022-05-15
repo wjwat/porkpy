@@ -1,4 +1,4 @@
-#!/usr/bin/evn python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright © 2022 Will Watkins
@@ -39,14 +39,15 @@ AUTH_OPTIONS = (
     click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
     click.option("-s", "--secrets", type=str),
 )
+DOMAIN_BASE = (click.option("-d", "--domain", required=True, type=str),)
 DOMAIN_OPTIONS = (
-    click.option("-d", "--domain", required=True, type=str),
     click.option("-n", "--name", type=str),
     click.option("-t", "--type", type=str),
     click.option("-c", "--content", type=str),
     click.option("-l", "--ttl", type=str),
     click.option("-p", "--priority", type=str),
 )
+DOMAIN_SSL = (click.option("--ssl", type=bool, default=False, is_flag=True),)
 VALID_DOMAIN_TYPES = (
     "A",
     "MX",
@@ -79,6 +80,13 @@ class PorkRecord:
     def retrieve(self):
         response = requests.post(
             API_ENDPOINT + f"dns/retrieve/{self.domain}", data=self.auth.auth_str()
+        )
+        json_resp = response.json()
+        return json.dumps(json_resp)
+
+    def retrieve_ssl(self):
+        response = requests.post(
+            API_ENDPOINT + f"ssl/retrieve/{self.domain}", data=self.auth.auth_str()
         )
         json_resp = response.json()
         return json.dumps(json_resp)
@@ -174,20 +182,24 @@ def authorized(**kwargs):
     print(json.dumps(response))
 
 
-# @cli.command(name="domain", )
 @cli.group(help="Do stuff with your domain")
 def domain(**kwargs):
     pass
 
 
 @domain.command("info")
-@add_options(DOMAIN_OPTIONS)
-@add_options(AUTH_OPTIONS)
+@add_options(DOMAIN_BASE + DOMAIN_SSL + AUTH_OPTIONS)
 def domain_retrieve_records(**kwargs):
     auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
     auth = PorkAuth(**auth_args)
     domain = PorkRecord(kwargs["domain"], auth)
-    print(domain.retrieve())
+
+    if kwargs["ssl"]:
+        ssl = domain.retrieve_ssl()
+        print(ssl)
+    else:
+        records = domain.retrieve()
+        print(records)
 
 
 @domain.command("create")
