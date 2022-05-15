@@ -34,7 +34,7 @@ import requests
 import sys
 
 
-API_ENDPOINT = "https://porkbun.com/api/json/v3/"
+API_ENDPOINT = "https://porkbun.com/api/json/v3"
 VALID_DOMAIN_TYPES = (
     "A",
     "MX",
@@ -57,14 +57,20 @@ PORKPY_OPTIONS = {
     ),
     "id": click.option("-i", "--id", type=str, default=None),
     "domain": click.option("-d", "--domain", required=True, type=str),
-    "name": click.option("-n", "--name", type=str),
+    "name": click.option("-n", "--name", type=str, default=""),
     "type": click.option(
         "-t", "--type", type=click.Choice(VALID_DOMAIN_TYPES, case_sensitive=False)
     ),
+    "type_req": click.option(
+        "-t",
+        "--type",
+        required=True,
+        type=click.Choice(VALID_DOMAIN_TYPES, case_sensitive=False),
+    ),
     "subdomain": click.option("-u", "--subdomain", type=str),
-    "content": click.option("-c", "--content", type=str),
-    "ttl": click.option("-l", "--ttl", type=str),
-    "priority": click.option("-p", "--priority", type=str),
+    "content": click.option("-c", "--content", required=True, type=str),
+    "ttl": click.option("-l", "--ttl", type=int, default=""),
+    "priority": click.option("-p", "--priority", type=str, default=""),
     "tld": click.option(
         "-t",
         "--tld",
@@ -114,14 +120,34 @@ class PorkRecord:
 
     def retrieve(self):
         response = get_json_response(
-            API_ENDPOINT + f"dns/retrieve/{self.domain}", data=self.auth.auth_str()
+            API_ENDPOINT + f"/dns/retrieve/{self.domain}", data=self.auth.auth_str()
         )
 
         return json.dumps(response)
 
     def retrieve_ssl(self):
         response = get_json_response(
-            API_ENDPOINT + f"ssl/retrieve/{self.domain}", data=self.auth.auth_str()
+            API_ENDPOINT + f"/ssl/retrieve/{self.domain}", data=self.auth.auth_str()
+        )
+
+        return json.dumps(response)
+
+    def create_record(self, type, content, name, ttl, priority, **_):
+        payload = {
+            k: v
+            for (k, v) in (
+                ("type", type),
+                ("content", content),
+                ("name", name),
+                ("ttl", ttl),
+                ("prio", priority),
+            )
+            if v is not None
+        }
+        payload = {**self.auth.AUTH_PAYLOAD, **payload}
+
+        response = get_json_response(
+            f"{API_ENDPOINT}/dns/create/{self.domain}", data=json.dumps(payload)
         )
 
         return json.dumps(response)
@@ -160,7 +186,7 @@ class PorkAuth:
             endpoint = endpoint.replace("porkbun.com", "api-ipv4.porkbun.com")
 
         response = get_json_response(
-            API_ENDPOINT + "ping", data=json.dumps(self.AUTH_PAYLOAD)
+            API_ENDPOINT + "/ping", data=json.dumps(self.AUTH_PAYLOAD)
         )
 
         return (response["status"] == "SUCCESS", response)
@@ -180,7 +206,7 @@ def cli():
 def pricing(tld):
     # FIXME: check for status code response from our post request and display
     # info to the user about why it might have failed.
-    response = requests.post(API_ENDPOINT + "pricing/get")
+    response = requests.post(API_ENDPOINT + "/pricing/get")
     json_resp = response.json()
     output = {}
 
@@ -236,8 +262,8 @@ def domain_retrieve_records(**kwargs):
             message="--ssl may not be used in conjunction with --type and --subdomain",
         )
 
-    auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
-    auth = PorkAuth(**auth_args)
+    # auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
+    auth = PorkAuth(**kwargs)
     domain = PorkRecord(kwargs["domain"], auth)
 
     if kwargs["ssl"]:
@@ -251,8 +277,14 @@ def domain_retrieve_records(**kwargs):
 
 
 @domain.command("create")
+@add_options(
+    "domain", "file", "secrets", "type_req", "content", "name", "ttl", "priority"
+)
 def domain_create_record(**kwargs):
-    pass
+    auth = PorkAuth(**kwargs)
+    domain = PorkRecord(domain=kwargs["domain"], auth=auth)
+    response = domain.create_record(**kwargs)
+    print(response)
 
 
 @domain.command("edit")
