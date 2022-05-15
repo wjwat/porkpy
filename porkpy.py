@@ -39,6 +39,14 @@ AUTH_OPTIONS = (
     click.option("-f", "--file", type=click.Path(exists=True), default="porkpy.json"),
     click.option("-s", "--secrets", type=str),
 )
+DOMAIN_OPTIONS = (
+    click.option("-d", "--domain", required=True, type=str),
+    click.option("-n", "--name", type=str),
+    click.option("-t", "--type", type=str),
+    click.option("-c", "--content", type=str),
+    click.option("-l", "--ttl", type=str),
+    click.option("-p", "--priority", type=str),
+)
 VALID_DOMAIN_TYPES = (
     "A",
     "MX",
@@ -129,20 +137,11 @@ def cli():
     "-t",
     "--tld",
     default=None,
-    help="Specific TLDs you'd like info for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
+    help="Specific TLDs you'd like pricing for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
     multiple=True,
     type=str,
 )
 def pricing(tld):
-    """Check pricing of TLDs. Omit a specific TLD to view the price for all TLDs.
-
-    \b
-    $ porkpy pricing
-    <JSON response including all available TLDs>
-    \b
-    $ porkpy pricing -t com -t net
-    <JSON response including .com and .net TLDs>
-    """
     # FIXME: check for status code response from our post request and display
     # info to the user about why it might have failed.
     response = requests.post(API_ENDPOINT + "pricing/get")
@@ -175,19 +174,35 @@ def authorized(**kwargs):
     print(json.dumps(response))
 
 
-@cli.command(name="domain", help="Do stuff with your domain")
-@click.option(
-    "-d",
-    "--domain",
-    required=True,
-    type=str,
-)
-@add_options(AUTH_OPTIONS)
+# @cli.command(name="domain", )
+@cli.group(help="Do stuff with your domain")
 def domain(**kwargs):
+    pass
+
+
+@domain.command("info")
+@add_options(DOMAIN_OPTIONS)
+@add_options(AUTH_OPTIONS)
+def domain_retrieve_records(**kwargs):
     auth_args = {d: v for (d, v) in kwargs.items() if d in ("secrets", "file")}
     auth = PorkAuth(**auth_args)
     domain = PorkRecord(kwargs["domain"], auth)
     print(domain.retrieve())
+
+
+@domain.command("create")
+def domain_create_record(**kwargs):
+    pass
+
+
+@domain.command("edit")
+def domain_edit_records(**kwargs):
+    pass
+
+
+@domain.command("delete")
+def domain_delete_records(**kwargs):
+    pass
 
 
 def main():
