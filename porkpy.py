@@ -69,8 +69,8 @@ PORKPY_OPTIONS = {
     ),
     "subdomain": click.option("-u", "--subdomain", type=str),
     "content": click.option("-c", "--content", required=True, type=str),
-    "ttl": click.option("-l", "--ttl", type=int, default=""),
-    "priority": click.option("-p", "--priority", type=str, default=""),
+    "ttl": click.option("-l", "--ttl", type=str, default="300"),
+    "priority": click.option("-p", "--priority", type=str, default="0"),
     "tld": click.option(
         "-t",
         "--tld",
@@ -118,10 +118,17 @@ class PorkRecord:
         self.auth = auth
         return
 
-    def retrieve(self):
-        response = get_json_response(
-            API_ENDPOINT + f"/dns/retrieve/{self.domain}", data=self.auth.auth_str()
-        )
+    def retrieve(self, type=None, subdomain=None):
+        if type is not None and subdomain is not None:
+            response = get_json_response(
+                API_ENDPOINT
+                + f"/dns/retrieveByNameType/{self.domain}/{type}/{subdomain}",
+                data=self.auth.auth_str(),
+            )
+        else:
+            response = get_json_response(
+                API_ENDPOINT + f"/dns/retrieve/{self.domain}", data=self.auth.auth_str()
+            )
 
         return json.dumps(response)
 
@@ -151,6 +158,51 @@ class PorkRecord:
         )
 
         return json.dumps(response)
+
+    def edit_record(self, id, type, subdomain, content, name, ttl, priority, **_):
+        return "Edit routes currently not working."
+        # if id is not None:
+        #     payload = {
+        #         k: v
+        #         for (k, v) in (
+        #             ("content", content),
+        #             ("ttl", ttl),
+        #             ("prio", priority),
+        #             ("name", name),
+        #             ("type", type)
+        #         )
+        #         if v is not None
+        #     }
+        #     payload = {**self.auth.AUTH_PAYLOAD, **payload}
+        #     print(payload)
+
+        #     response = get_json_response(
+        #         f"{API_ENDPOINT}/dns/edit/{self.domain}/{id}",
+        #         data=payload
+        #     )
+
+        #     return json.dumps(response)
+
+        # else:
+        #     payload = {
+        #         k: v
+        #         for (k, v) in (
+        #             ("content", content),
+        #             ("ttl", ttl),
+        #             ("prio", priority),
+        #             ("name", subdomain),
+        #             ("type", type)
+        #         )
+        #         if v is not None
+        #     }
+        #     payload = {**self.auth.AUTH_PAYLOAD, **payload}
+
+        #     response = get_json_response(
+        #         f"{API_ENDPOINT}/dns/editByNameType/{self.domain}/{type}/{subdomain}",
+        #         data=payload
+        #     )
+
+        #     return json.dumps(response)
 
 
 # With our auth we want to go in order of importance:
@@ -246,7 +298,7 @@ def domain(**kwargs):
 
 
 @domain.command("info")
-@add_options("domain", "id", "ssl", "file", "secrets", "type", "subdomain")
+@add_options("domain", "ssl", "file", "secrets", "type", "subdomain")
 def domain_retrieve_records(**kwargs):
     if (kwargs["type"] is None or kwargs["subdomain"] is None) and (
         kwargs["type"] != kwargs["subdomain"]
@@ -269,8 +321,9 @@ def domain_retrieve_records(**kwargs):
     if kwargs["ssl"]:
         ssl = domain.retrieve_ssl()
         print(ssl)
-    elif kwargs["type"] and kwargs["subdomain"]:
-        print("shit")
+    elif kwargs["type"] is not None and kwargs["subdomain"] is not None:
+        record = domain.retrieve(kwargs["type"], kwargs["subdomain"])
+        print(record)
     else:
         records = domain.retrieve()
         print(records)
@@ -288,8 +341,34 @@ def domain_create_record(**kwargs):
 
 
 @domain.command("edit")
+@add_options(
+    "domain",
+    "id",
+    "file",
+    "secrets",
+    "type_req",
+    "subdomain",
+    "content",
+    "name",
+    "ttl",
+    "priority",
+)
 def domain_edit_records(**kwargs):
-    pass
+    if kwargs["id"] is None and kwargs["subdomain"] is None:
+        option = "id" if kwargs["id"] is None else "subdomain"
+        raise click.BadOptionUsage(
+            option_name=option,
+            message=f"Missing option --{option}",
+        )
+    elif kwargs["id"] is not None and kwargs["subdomain"] is not None:
+        raise click.BadOptionUsage(
+            option_name="id/type", message="Cannot edit by both subdomain & id"
+        )
+
+    auth = PorkAuth(**kwargs)
+    domain = PorkRecord(domain=kwargs["domain"], auth=auth)
+    response = domain.edit_record(**kwargs)
+    print(response)
 
 
 @domain.command("delete")
