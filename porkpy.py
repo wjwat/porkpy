@@ -101,14 +101,6 @@ def add_options(*options):
     return _add_options
 
 
-def opts(*args):
-    result = []
-    for a in args:
-        if a in PORKPY_OPTIONS:
-            result.append(PORKPY_OPTIONS[a])
-    return result
-
-
 def get_json_response(url, **kwargs):
     response = requests.post(url, **kwargs)
     json_response = response.json()
