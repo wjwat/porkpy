@@ -80,6 +80,9 @@ PORKPY_OPTIONS = {
         type=str,
     ),
     "ssl": click.option("--ssl", type=bool, default=False, is_flag=True),
+    "confirm": click.option(
+        "--confirm", required=True, type=bool, default=False, is_flag=True
+    ),
 }
 
 
@@ -160,7 +163,7 @@ class PorkRecord:
         return json.dumps(response)
 
     def edit_record(self, id, type, subdomain, content, name, ttl, priority, **_):
-        return "Edit routes currently not working."
+        return "Edit routes currently not working. To edit please pull down the pre-existing record, delete it, then create it with modified values."
         # if id is not None:
         #     payload = {
         #         k: v
@@ -203,6 +206,15 @@ class PorkRecord:
         #     )
 
         #     return json.dumps(response)
+
+    def delete_record(self, id, confirm, **_):
+        if id is not None:
+            response = get_json_response(
+                f"{API_ENDPOINT}/dns/delete/{self.domain}/{id}",
+                data=self.auth.auth_str(),
+            )
+
+            return json.dumps(response)
 
 
 # With our auth we want to go in order of importance:
@@ -372,8 +384,17 @@ def domain_edit_records(**kwargs):
 
 
 @domain.command("delete")
+@add_options("domain", "file", "secrets", "id", "confirm")
 def domain_delete_records(**kwargs):
-    pass
+    if kwargs["id"] is None:
+        raise click.BadOptionUsage(
+            option_name="id", message="Missing --id option, unable to delete."
+        )
+
+    auth = PorkAuth(**kwargs)
+    domain = PorkRecord(domain=kwargs["domain"], auth=auth)
+    response = domain.delete_record(**kwargs)
+    print(response)
 
 
 def main():
