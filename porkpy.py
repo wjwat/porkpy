@@ -449,21 +449,24 @@ def domain_create_record(**kwargs: Any) -> None:
     "priority",
 )
 def domain_edit_records(**kwargs: Any) -> None:
-    if kwargs["id"] is None and kwargs["subdomain"] is None:
-        option: str = "id" if kwargs["id"] is None else "subdomain"
-        raise click.BadOptionUsage(
-            option_name=option,
-            message=f"Missing option --{option}",
-        )
-    elif kwargs["id"] is not None and kwargs["subdomain"] is not None:
-        raise click.BadOptionUsage(
-            option_name="id/type", message="Cannot edit by both subdomain & id"
-        )
+    print(
+        "Edit route currently not working, please use the Porkbun website to edit pre-existing records."
+    )
+    # if kwargs["id"] is None and kwargs["subdomain"] is None:
+    #     option: str = "id" if kwargs["id"] is None else "subdomain"
+    #     raise click.BadOptionUsage(
+    #         option_name=option,
+    #         message=f"Missing option --{option}",
+    #     )
+    # elif kwargs["id"] is not None and kwargs["subdomain"] is not None:
+    #     raise click.BadOptionUsage(
+    #         option_name="id/type", message="Cannot edit by both subdomain & id"
+    #     )
 
-    auth = PorkAuth(**kwargs)
-    domain = PorkRecord(domain=kwargs["domain"], auth=auth)
-    response: str = domain.edit_record(**kwargs)
-    print(response)
+    # auth = PorkAuth(**kwargs)
+    # domain = PorkRecord(domain=kwargs["domain"], auth=auth)
+    # response: str = domain.edit_record(**kwargs)
+    # print(response)
 
 
 @domain.command("delete")
