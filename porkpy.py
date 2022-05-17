@@ -50,39 +50,106 @@ VALID_DOMAIN_TYPES = (
 )
 PORKPY_OPTIONS = {
     "file": click.option(
-        "-f", "--file", type=click.Path(exists=True), default="porkpy.json"
+        "-f",
+        "--file",
+        type=click.Path(exists=True),
+        default="porkpy.json",
+        help="JSON file containing apikey & secretapikey for the Porkbun API.",
     ),
-    "secrets": click.option("-s", "--secrets", type=str),
+    "secrets": click.option(
+        "-s",
+        "--secrets",
+        type=str,
+        help="String containing the apikey & secretapikey for the Porkbun Api. These should be seperated by a `:`.",
+    ),
     "auth_string": click.option(
-        "-a", "--auth-string", type=bool, default=False, is_flag=True
+        "-a",
+        "--auth-string",
+        type=bool,
+        default=False,
+        is_flag=True,
+        help="Display your apikey & secretapikey.",
     ),
-    "id": click.option("-i", "--id", type=str, default=None),
-    "domain": click.option("-d", "--domain", required=True, type=str),
-    "name": click.option("-n", "--name", type=str, default=""),
+    "id": click.option(
+        "-i",
+        "--id",
+        type=str,
+        default=None,
+        help="Numeric ID of specific DNS record. Available in response to info request to Porkbun API.",
+    ),
+    "domain": click.option(
+        "-d",
+        "--domain",
+        type=str,
+        required=True,
+        help="Domain name used to interact with. Must be authorized through Porkbun website beforehand.",
+    ),
+    "name": click.option(
+        "-n",
+        "--name",
+        type=str,
+        default="",
+        help="The subdomain for the record being created, not including the domain itself. Omit to create a record on the root domain. Use * to create a wildcard record.",
+    ),
     "type": click.option(
-        "-t", "--type", type=click.Choice(VALID_DOMAIN_TYPES, case_sensitive=False)
+        "-t",
+        "--type",
+        type=click.Choice(VALID_DOMAIN_TYPES),
+        help="The type of record being created. Valid types are: A, MX, CNAME, ALIAS, TXT, NS, AAAA, SRV, TLSA, CAA",
     ),
     "type_req": click.option(
         "-t",
         "--type",
         required=True,
-        type=click.Choice(VALID_DOMAIN_TYPES, case_sensitive=False),
+        type=click.Choice(VALID_DOMAIN_TYPES),
+        help="The type of record being created. Valid types are: A, MX, CNAME, ALIAS, TXT, NS, AAAA, SRV, TLSA, CAA",
     ),
-    "subdomain": click.option("-u", "--subdomain", type=str),
-    "content": click.option("-c", "--content", required=True, type=str),
-    "ttl": click.option("-l", "--ttl", type=str, default="300"),
-    "priority": click.option("-p", "--priority", type=str, default="0"),
+    "subdomain": click.option(
+        "-u", "--subdomain", type=str, help="Subdomain for record."
+    ),
+    "content": click.option(
+        "-c",
+        "--content",
+        required=True,
+        type=str,
+        help="The answer content for the record.",
+    ),
+    "ttl": click.option(
+        "-l",
+        "--ttl",
+        type=str,
+        default="300",
+        help="The time to live in seconds for the record. The minimum and the default is 300 seconds.",
+    ),
+    "priority": click.option(
+        "-p",
+        "--priority",
+        type=str,
+        default="0",
+        help="The priority of the record for those that support it. Default is 0.",
+    ),
     "tld": click.option(
         "-t",
         "--tld",
-        default=None,
-        help="Specific TLDs you'd like pricing for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
-        multiple=True,
         type=str,
+        default=None,
+        multiple=True,
+        help="Specific TLDs you'd like pricing for. Use multiple flags for multiple TLDs. Omit for all TLDs.",
     ),
-    "ssl": click.option("--ssl", type=bool, default=False, is_flag=True),
+    "ssl": click.option(
+        "--ssl",
+        type=bool,
+        default=False,
+        is_flag=True,
+        help="Retrieve the SSL certificate bundle for the domain.",
+    ),
     "confirm": click.option(
-        "--confirm", required=True, type=bool, default=False, is_flag=True
+        "--confirm",
+        required=True,
+        type=bool,
+        default=False,
+        is_flag=True,
+        help="Confirm that you want to delete this record. Must be present for action to be completed.",
     ),
 }
 
@@ -264,7 +331,7 @@ class PorkRecord:
 
         #     return json.dumps(response)
 
-    def delete_record(self, id: str, confirm: bool, **_) -> str:
+    def delete_record(self, id: str, **_) -> str:
         if id is not None:
             response = get_json_response(
                 f"{API_ENDPOINT}/dns/delete/{self.domain}/{id}",
@@ -405,6 +472,10 @@ def domain_delete_records(**kwargs: Any) -> Any:
     if kwargs["id"] is None:
         raise click.BadOptionUsage(
             option_name="id", message="Missing --id option, unable to delete."
+        )
+    if kwargs["confirm"] is False:
+        raise click.BadOptionUsage(
+            option_name="confirm", message="Missing --confirm option, unable to delete."
         )
 
     auth = PorkAuth(**kwargs)
