@@ -350,10 +350,15 @@ def cli() -> None:
 @cli.command(name="pricing", short_help="Check pricing of TLDs")
 @add_options("tld")
 def pricing(tld: str) -> None:
-    # FIXME: check for status code response from our post request and display
-    # info to the user about why it might have failed.
-    response: requests.models.Response = requests.post(API_ENDPOINT + "/pricing/get")
-    json_resp: dict = response.json()
+    """
+    Displays JSON response containing prices for requested TLDs. If no domains
+    are provided it will provide the pricing for all domains available through
+    Porkbun. Call with multiple TLD flags for a response object that contains
+    pricing for only those TLDs.
+
+    Ex: porkpy pricing -t com -t net
+    """
+    json_resp: dict = get_json_response(API_ENDPOINT + "/pricing/get")
     output: dict = {}
 
     if json_resp["status"] == "SUCCESS":
@@ -389,7 +394,7 @@ def authorized(**kwargs: Any) -> None:
 
 
 @cli.group(help="Do stuff with your domain")
-def domain(**kwargs: Any) -> None:
+def domain() -> None:
     pass
 
 
