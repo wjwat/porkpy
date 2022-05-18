@@ -382,6 +382,10 @@ def pricing(tld: str) -> None:
 @cli.command(name="auth", help="Check if you are authorized to access the Porkbun API")
 @add_options("file", "secrets", "auth_string")
 def authorized(**kwargs: Any) -> None:
+    """
+    Checks to see if you are authorized to use the Porkbun API. Will return a
+    JSON object containing your IP and a success status code.
+    """
     auth = PorkAuth(**kwargs)
 
     if kwargs["auth_string"]:
@@ -393,14 +397,23 @@ def authorized(**kwargs: Any) -> None:
         print(json.dumps(response))
 
 
-@cli.group(help="Do stuff with your domain")
+@cli.group(help="Interact with authorized domains.")
 def domain() -> None:
+    """
+    Provides access to manage your DNS records for authorized domains. You can
+    authorize your domain with API access through the Porkbun web interface.
+    """
     pass
 
 
 @domain.command("info")
 @add_options("domain", "ssl", "file", "secrets", "type", "subdomain")
 def domain_retrieve_records(**kwargs: Any) -> None:
+    """
+    Displays info for the provided domain as long as you are authorized, and the
+    domain has API access enabled. Will also display the SSL bundle for a given
+    domain if the --ssl flag is used.
+    """
     if (kwargs["type"] is None or kwargs["subdomain"] is None) and (
         kwargs["type"] != kwargs["subdomain"]
     ):
@@ -434,6 +447,9 @@ def domain_retrieve_records(**kwargs: Any) -> None:
     "domain", "file", "secrets", "type_req", "content", "name", "ttl", "priority"
 )
 def domain_create_record(**kwargs: Any) -> None:
+    """
+    Creates a record for a given authorized domain.
+    """
     auth = PorkAuth(**kwargs)
     domain = PorkRecord(domain=kwargs["domain"], auth=auth)
     response: str = domain.create_record(**kwargs)
@@ -454,6 +470,12 @@ def domain_create_record(**kwargs: Any) -> None:
     "priority",
 )
 def domain_edit_records(**kwargs: Any) -> None:
+    """
+    THIS CURRENTLY DOES NOT WORK.
+
+    If you'd like to edit a record please do so through the Porkbun web
+    interface.
+    """
     print(
         "Edit route currently not working, please use the Porkbun website to edit pre-existing records."
     )
@@ -477,6 +499,13 @@ def domain_edit_records(**kwargs: Any) -> None:
 @domain.command("delete")
 @add_options("domain", "file", "secrets", "id", "confirm")
 def domain_delete_records(**kwargs: Any) -> Any:
+    """
+    This will delete a given record for the provided domain. Which record is
+    indicated by the id that is provided. To find the id of a given record use
+    the `info` command.
+
+    You must include the `confirm` flag to delete that record.
+    """
     if kwargs["id"] is None:
         raise click.BadOptionUsage(
             option_name="id", message="Missing --id option, unable to delete."
