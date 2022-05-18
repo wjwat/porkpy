@@ -8,6 +8,8 @@
 
 Easily manage your DNS records from the command line.
 
+![Example Screenshot](screenshot.png)
+
 ## Features
 
 * Check prices for all available TLDs.
