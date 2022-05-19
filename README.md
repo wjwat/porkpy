@@ -29,6 +29,31 @@ Currently Porkpy is developed and managed with [Poetry](https://python-poetry.or
 - In the directory where you have cloned this repo use `poetry install` to setup your environment.
 - Use `poetry run python porkpy.py <commands>` to use Porkpy.
 
+To check the price of a TLD:
+
+```sh
+$ python porkpy.py pricing -t com | jq
+{
+  "status": "SUCCESS",
+  "pricing": {
+    "com": {
+      "registration": "9.13",
+      "renewal": "9.13",
+      "transfer": "9.13",
+      "coupons": {
+        "registration": {
+          "code": "AWESOMENESS",
+          "max_per_user": 1,
+          "first_year_only": "yes",
+          "type": "amount",
+          "amount": 1
+        }
+      }
+    }
+  }
+}
+```
+
 ## Roadmap
 
 - Better testing, with full automation.
